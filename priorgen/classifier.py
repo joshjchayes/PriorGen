@@ -6,12 +6,14 @@ generating the informed priors
 '''
 
 import numpy as np
+import os
 
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import MiniBatchKMeans
 
 from .observablesclass import ObservablesClass
+
 
 
 class Classifier:
@@ -210,44 +212,6 @@ class Classifier:
 
         return clustering, scaler
 
-    def _generate_distributions(self, n_bins):
-        '''
-        Generates the marginalised distribution for each of the variables
-        for each of the classes.
-
-        Parameters
-        ----------
-        n_bins : int
-            The number of bins to use in the marginalising.
-
-        Returns
-        -------
-        binned_data : array_like,
-            The d
-        '''
-        # Find all the different class labels.
-        unique_labels = set(self._clustering.labels_)
-
-        binned_data = []
-
-        # Now loop through each class and bin each variable using np.histogram
-        for li, label in enumerate(unique_labels):
-            # Mask to only use relevant class
-            mask = (self._clustering.labels_ == label)
-            class_parameters = self.parameters[mask]
-
-            binned_label_data = []
-
-            # Now loop through each variable and bin to a histogram
-            for vi in range(self.n_variables):
-                vals = class_parameters[:, vi]
-                h = np.histogram(vals, n_bins)
-                binned_label_data.append(h)
-
-            binned_data.append(binned_label_data)
-
-        return binned_data
-
     def _create_observables_classes(self, n_bins):
         '''
         Creates an ObservablesClass for each of the classes.
@@ -257,16 +221,63 @@ class Classifier:
         n_bins : int
             The number of bins to use in the marginalising.
         '''
-        # Bin to generate marginalised distributions
-        binned_data = self._generate_distributions(n_bins)
-
+        # Loop over each cluster and make the ObservablesClass
+        unique_labels = set(self._clustering.labels_)
+    
         classes = []
 
-        # Loop over each cluster and make the ObservablesClass
-        for i in range(self.n_classes):
-            center = self._clustering.cluster_centers_[i]
+        for li, label in enumerate(unique_labels):
+            # Mask to only use relevant class
+            mask = (self._clustering.labels_ == label)
+            class_parameters = self.parameters[mask]
 
-            # Make the ObservablesClass
-            classes.append(ObservablesClass(center, binned_data[i]))
+            center = self._clustering.cluster_centers_[li]
+
+            classes.append(ObservablesClass(class_parameters, center, n_bins))
 
         return classes
+
+    def plot_classes(self, axis_labels=None, scale_axes=True, save_figures=True, 
+                     save_folder=os.getcwd()):
+        '''
+        Generates a corner plot for each class showing the parameter distributions
+
+        Parameters
+        ----------
+        axis_labels : None or array_like, optional
+            Option to provide axis labels. Should be variable names in a list, 
+            with names for all variables. If None, will default to using P_n
+            where n is in range (0, n_variables - 1). Default is None. 
+        scale_axes : bool, optional
+            If True, the axes of each plot will be scaled to show the full range
+            of each parameter, rather than just being limited by the range of a 
+            parameter within the class. Default is True.
+        save_figures : bool, optional:
+            If True, will save the output figures as pdf images. Default is True.
+        save_folder : str, optional
+            If save_figures is True, this is the folder that the figures will 
+            be saved to. Default is the current working directory.  
+
+        Returns
+        -------
+        fig_list : array_like, shape (n_classes, )
+            A list of the figures generated.
+        '''
+
+        if scale_axes:
+            axis_lims = [[self.parameters[:, i].min(), self.parameters[:, i].max()] for i in range(self.n_variables)]
+        else:
+            axis_lims = None
+
+        fig_list = []
+        for c in self.classes:
+            fig_list.append(c.plot_distribution(axis_labels, axis_lims))
+    
+        if save_figures:
+            # Saving figures
+            for i in range(self.n_classes):
+                path = os.path.join(save_folder, 'class_plot_{}.pdf'.format(i))
+                fig_list[i].savefig(path)
+
+        return fig_list
+
