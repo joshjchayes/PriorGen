@@ -13,12 +13,12 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import MiniBatchKMeans
 
 from .observablesclass import ObservablesClass
-
+from .pca_utils import find_required_components, run_PCA
 
 
 class Classifier:
-    def __init__(self, parameters, observables, n_classes=50, n_components=15,
-                 n_bins=20):
+    def __init__(self, parameters, observables, n_classes=50, variance=0.999,
+                 n_components=None, n_bins=20):
         '''
         The Classifier is the main PriorGen interface, which generates the
         classes of observables, as well as classifies a new observable and
@@ -40,9 +40,13 @@ class Classifier:
         n_classes : int, optional
             The number of different classes to use when training the classifier
             Default is 50.
-        n_components : int, optional
-            The number of principal components to use when conducting PCA on
-            the observables. Default is 15.
+        variance : float, optional
+            The fraction of explained variance to keep in the principal
+            components. Default is 0.999
+        n_components : int or None, optional
+            If provided, will override the `variance` kwarg and specify the
+            number of principal components to use when conducting PCA on
+            the observables. Default is None.
         n_bins : int, optional
             The number of bins to split each maginalised parameter distribution
             into. The more bins you have, the more detail you will have on the
@@ -68,6 +72,11 @@ class Classifier:
 
         # Store some other useful info
         self.n_classes = n_classes
+
+        if n_components is None:
+            # find the ideal number of components
+            n_components = find_required_components(parameters, observables, variance)
+
         self.n_components = n_components
         self.n_bins = n_bins
 
@@ -181,11 +190,8 @@ class Classifier:
         reduced_d_observables : array_like, shape(N, n_components)
             The observables after PCA has been applied to them
         '''
-        pca = PCA(n_components=n_components)
-        fitted_pca = pca.fit(self.observables)
-        reduced_d_observables = fitted_pca.transform(self.observables)
-
-        return pca, reduced_d_observables
+        return run_PCA(self.parameters, self.observables, n_components)
+        
 
     def _run_kmeans_clustering(self, n_clusters):
         '''
@@ -223,7 +229,7 @@ class Classifier:
         '''
         # Loop over each cluster and make the ObservablesClass
         unique_labels = set(self._clustering.labels_)
-    
+
         classes = []
 
         for li, label in enumerate(unique_labels):
@@ -237,7 +243,7 @@ class Classifier:
 
         return classes
 
-    def plot_classes(self, axis_labels=None, scale_axes=True, save_figures=True, 
+    def plot_classes(self, axis_labels=None, scale_axes=True, save=True,
                      save_folder=os.getcwd()):
         '''
         Generates a corner plot for each class showing the parameter distributions
@@ -245,18 +251,18 @@ class Classifier:
         Parameters
         ----------
         axis_labels : None or array_like, optional
-            Option to provide axis labels. Should be variable names in a list, 
+            Option to provide axis labels. Should be variable names in a list,
             with names for all variables. If None, will default to using P_n
-            where n is in range (0, n_variables - 1). Default is None. 
+            where n is in range (0, n_variables - 1). Default is None.
         scale_axes : bool, optional
             If True, the axes of each plot will be scaled to show the full range
-            of each parameter, rather than just being limited by the range of a 
+            of each parameter, rather than just being limited by the range of a
             parameter within the class. Default is True.
-        save_figures : bool, optional:
+        save : bool, optional:
             If True, will save the output figures as pdf images. Default is True.
         save_folder : str, optional
-            If save_figures is True, this is the folder that the figures will 
-            be saved to. Default is the current working directory.  
+            If save is True, this is the folder that the figures will
+            be saved to. Default is the current working directory.
 
         Returns
         -------
@@ -272,12 +278,11 @@ class Classifier:
         fig_list = []
         for c in self.classes:
             fig_list.append(c.plot_distribution(axis_labels, axis_lims))
-    
-        if save_figures:
+
+        if save:
             # Saving figures
             for i in range(self.n_classes):
                 path = os.path.join(save_folder, 'class_plot_{}.pdf'.format(i))
                 fig_list[i].savefig(path)
 
         return fig_list
-
