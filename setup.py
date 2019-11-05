@@ -10,7 +10,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="priorgen",
-    version="0.1.1",
+    version="0.1.2",
     author="Joshua Hayes",
     author_email="joshjchayes@gmail.com",
     description="A package for Bayesian retrieval using machine learning generated priors.",

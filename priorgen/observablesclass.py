@@ -17,7 +17,7 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 from scipy.stats import kde
 
-plt.ioff()
+#plt.ioff()
 
 class ObservablesClass:
     def __init__(self, parameters, center, n_bins):
@@ -35,7 +35,13 @@ class ObservablesClass:
             The number of bins to split each maginalised parameter distribution
             into. The more bins you have, the more detail you will have on the
             shape of each class' prior. However, if you have too many, you will
-            encounter issues of undersampling. 
+            encounter issues of undersampling.
+
+        Notes
+        -----
+        If a bin in the marginalised parameter distribution is empty, a
+        RuntimeWarning will be raised. This can be safely ignored as an
+        empty bin will never be selected by the nested sampler routines
         '''
         self.parameters = parameters
         self.center = center
@@ -44,6 +50,10 @@ class ObservablesClass:
 
         # Generate the marginalised distributions
         distribution = self._generate_distributions(n_bins)
+
+        # The histogrammed data from _generate_distributions, stored in
+        # physical parameter space
+        self._distributions = distribution
 
         # Make some blank arrays we will populate in a minute
         self.distribution_functions = np.zeros(len(distribution), object)
@@ -79,6 +89,10 @@ class ObservablesClass:
             # Second: y-intercept
             c = flat_bin_edges[1:] - unitless_bin_edges[1:] * (flat_bin_edges[1:] - flat_bin_edges[:-1])/(unitless_bin_edges[1:] - unitless_bin_edges[:-1])
 
+            # NOTE: If a bin is empty, then a RuntimeWarning will be raised
+            # due to a divide by zero. This is okay, as these bins will never
+            # be selected by the random selection anyway.
+
             self.linear_coeffs[i] = np.vstack((m, c)).T
 
             # make the distribution functions
@@ -98,7 +112,7 @@ class ObservablesClass:
         Returns
         -------
         binned_data : array_like, shape (n_variables, )
-            The marginalised distributions. Each entry in the above array is a 
+            The marginalised distributions. Each entry in the above array is a
             tuple output from numpy.histogram with shape (n_bins, n_bins + 1).
         '''
         binned_data = []
@@ -109,7 +123,7 @@ class ObservablesClass:
             binned_data.append(h)
 
         return binned_data
-        
+
     def convert_from_unit_interval(self, param_idx, unitless_value):
         '''
         Converts a parameter from a unitless value in range [0,1) to a
@@ -130,33 +144,34 @@ class ObservablesClass:
         '''
 
         # Obtain the bin index
-        bin_idx = self.distribution_functions[param_idx].ppf(unitless_value)
+        bin_idx = int(self.distribution_functions[param_idx].ppf(unitless_value))
 
         # Now we convert the unitless value into a physical value
-        m = self.linear_coeffs[bin_idx, 0]
-        c = self.linear_coeffs[bin_idx, 1]
+        m = self.linear_coeffs[param_idx, bin_idx, 0]
+        c = self.linear_coeffs[param_idx, bin_idx, 1]
+
         return m * unitless_value + c
 
     def plot_distribution(self, axis_labels=None, axis_lims=None, savepath=None):
         '''
         Generates a corner plot for the parameter distributions, along with the
-        marginalised distributions which are subsequently used as informed 
+        marginalised distributions which are subsequently used as informed
         priors
 
         Parameters
         ----------
         axis_labels : None or array_like, optional
-            Option to provide axis labels. Should be variable names in a list, 
+            Option to provide axis labels. Should be variable names in a list,
             with names for all variables. If None, will default to using P_n
-            where n is in range (0, n_variables - 1). Default is None. 
+            where n is in range (0, n_variables - 1). Default is None.
         axis_lims : None or array_like, shape (n_variables, 2), optional
-            The lower and upper limits of each axis for each variable. If 
+            The lower and upper limits of each axis for each variable. If
             provided, the range of the relevant axes will be changed. Default
             is None.
-        savepath : str or None, optional    
-            If provided, will save the figure to the specified path. Default 
+        savepath : str or None, optional
+            If provided, will save the figure to the specified path. Default
             is None.
-        '''       
+        '''
         plt.ioff()
 
         if axis_labels is None:
@@ -174,19 +189,19 @@ class ObservablesClass:
 
         gs = gridspec.GridSpec(self.n_variables, self.n_variables)
 
-        
+
 
         for i in range(self.n_variables):
             for j in range(i + 1):
                 ax = fig.add_subplot(gs[i, j])
-                
+
                 xlabel = axis_labels[j]
                 ylabel = axis_labels[i]
 
                 # DO SOME THINGS WITH THE AXES, LABELS AND TICKS.
                 if i == self.n_variables - 1:
-                    # add in the x labels            
-                    ax.set_xlabel(xlabel)  
+                    # add in the x labels
+                    ax.set_xlabel(xlabel)
                 else:
                     # Remove x labels
                     ax.tick_params(axis='x',
@@ -194,7 +209,7 @@ class ObservablesClass:
                                    labelbottom=False)
                 if j == 0:
                     # Add in the y axis and labels
-                    ax.set_ylabel(ylabel)            
+                    ax.set_ylabel(ylabel)
                 else:
                     # Remove y labels
                     ax.tick_params(axis='y',
@@ -202,7 +217,7 @@ class ObservablesClass:
                                    labelleft=False)
 
                 if axis_lims is not None:
-                    # Rescale the axes 
+                    # Rescale the axes
                     ax.set_xlim(*axis_lims[j])
                     if not i == j:
                         # Avoid messing with the y axis on the marginal plots
@@ -224,7 +239,7 @@ class ObservablesClass:
 
                     if axis_lims is None:
                         xi, yi = np.mgrid[x.min():x.max():self.n_bins*1j, y.min():y.max():self.n_bins*1j]
-                          
+
                     else:
                         # Need to use differentlimits for meshgrid as we are changing the axis lims
                         xmin = axis_lims[j, 0]
@@ -242,4 +257,37 @@ class ObservablesClass:
         plt.close()
         return fig
 
+    def are_parameters_in_class(self, parameters):
+        '''
+        Checks to see if a set of parameters are possible within the
+        parameter distribution of the ObservablesClass
 
+        Parameters
+        ----------
+        parameters : array_like, shape (n_parameters, )
+            The parameter values to check.
+
+        Returns
+        -------
+        parameters_in_class : bool
+            Returns True if parameters are possible with the parameter
+            distributions, False otherwise
+        '''
+
+        # Loop over each parameter
+        for i, p in enumerate(parameters):
+            # Check parameter is within in min and max values of distribution
+            if p < self._distributions[i][1][0] or p > self._distributions[i][1][-1]:
+                return False
+
+            # Find the histogram bin containing parameter
+            for j in range(self.n_bins):
+                if self._distributions[i][1][j] < p < self._distributions[i][1][j + 1]:
+                    bin_idx = j
+                    break
+
+            # Check histogram bin is non-zero
+            if self._distributions[i][0][bin_idx] == 0:
+                return False
+
+        return True

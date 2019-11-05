@@ -13,7 +13,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import MiniBatchKMeans
 
 from .observablesclass import ObservablesClass
-from .pca_utils import find_required_components, run_PCA
+from .pca_utils import find_required_components, run_PCA, pca_plot
 
 
 class Classifier:
@@ -26,12 +26,12 @@ class Classifier:
 
         Parameters
         ----------
-        parameters : array_like, shape (N, M)
+        parameters : array_like, shape (N, n_parameters)
             The physical parameter values for each point we are training the
-            ML classifier on. N is the number of points, whilst M is the
-            physical value for each parameter. These are all assumed to be in
-            the same order. We assume that there are M variables in the model,
-            and that none of them are constants.
+            ML classifier on. N is the number of points, whilst n_parameters is
+            the number of parameters. These are all assumed to be in the same
+            order. We assume that there are M variables in the model, and that
+            none of them are constants.
         observables : array_like, shape (N, X)
             The observables associated with each of the parameters. We assume
             that the observables are 1D arrays where each entry is directly
@@ -111,6 +111,8 @@ class Classifier:
             index for referencing the ObservablesClass the observable is
             classified as.
         '''
+        observable = np.array([observable])
+
         # Run PCA
         pca_obs = self._pca.transform(observable)
 
@@ -119,7 +121,7 @@ class Classifier:
 
         # Now run the prediction of the cluster
         label = self._clustering.predict(scaled_obs)
-        return label
+        return label[0]
 
     def create_dynesty_prior_transform(self, observable):
         '''
@@ -140,7 +142,7 @@ class Classifier:
             classified as
         '''
 
-        data_class = self.classify_observable(observable)
+        data_class = self.classes[int(self.classify_observable(observable))]
 
         def prior_transform(unit_cube):
             '''
@@ -150,13 +152,13 @@ class Classifier:
 
             Parameters
             ----------
-            unit_cube : array_like, shape (N, )
+            unit_cube : array_like, shape (n_parameters, )
                 The unit cube from dynesty which will be converted to physical
                 parameter space
 
             Returns
             -------
-            physical_cube : array_like, shape (N, )
+            physical_cube : array_like, shape (n_parameters, )
                 The cube in physical space.
 
             '''
@@ -166,6 +168,9 @@ class Classifier:
             # Loop through each of the variables and convert them using the
             # distribution functions in the ObservablesClass
             for i in range(len(physical_cube)):
+                #print(data_class.convert_from_unit_interval(
+                    #i, unit_cube[i]))
+                #print(unit_cube[i])
                 physical_cube[i] = data_class.convert_from_unit_interval(
                     i, unit_cube[i])
 
@@ -191,7 +196,6 @@ class Classifier:
             The observables after PCA has been applied to them
         '''
         return run_PCA(self.parameters, self.observables, n_components)
-        
 
     def _run_kmeans_clustering(self, n_clusters):
         '''
@@ -286,3 +290,80 @@ class Classifier:
                 fig_list[i].savefig(path)
 
         return fig_list
+
+    def plot_pca_variance(self, n_components=None,
+                          save_path='PCA_plot.pdf'):
+        '''
+        Produces a plot of the explained variance of the first n_components
+        pricipal components, along with cumulative variance.
+
+        Parameters
+        ----------
+        n_components : int, optional
+            The number of principal components to keep. Default is
+            self.n_components
+        save_path : str, optional
+            The path that the figure will be saved to. Default is
+            'PCA_plot.pdf'.
+
+        Returns
+        -------
+        fig : matplotlib.Figure
+            The plot
+        '''
+        if n_components is None:
+            n_components = self.n_components
+
+        return pca_plot(self.parameters, self.observables, n_components,
+                        save_path=save_path)
+
+    def test_classification_accuracy(self, test_parameters, test_observables,
+                                     return_accuracy_array=False):
+        '''
+        Runs classification on multiple obseravbles with known parameters and
+        finds the accuracy of classification through comparing the parameters
+        of the assigned class with the known values
+
+        Parameters
+        ----------
+        test_parameters : array_like, shape (K, n_parameters)
+            K sets of parameters associated with each of the K observables
+        test_observables : array_like, shape (K, X)
+            The observables associated with each of the parameters. We assume
+            that the observables are 1D arrays where each entry is directly
+            comparable. For example, it could be F(t), but where each entry is
+            at the same value of t.
+        return_accuracy_array : bool, optional
+            If True, will return boolean array of which test_parameters were
+            accurately classified. Default is False
+
+        Returns
+        -------
+        accuracy : float
+            The fraction of observables which were accurately classified
+        accurately_classified : np.array, shape (K, ), optional
+            Array showing which test_parameters were accurately classified.
+            Returned if return_accuracy_array is True.
+
+        Notes
+        -----
+        An accurate classification is defined as one which results in an
+        assigned class with a parameter distribution which contains the true
+        set of parameters
+        '''
+
+        accurately_classified = np.zeros(len(test_parameters), bool)
+
+        # Classify each observable and find if the true parameters fall within
+        # the assigned class parameter distribution
+        for i, obs in enumerate(test_observables):
+            assigned_class = self.classify_observable(obs)
+
+            if self.classes[assigned_class].are_parameters_in_class(test_parameters[i]):
+                accurately_classified[i] = True
+
+        accuracy = sum(accurately_classified) / len(accurately_classified)
+
+        if return_accuracy_array:
+            return accuracy, accurately_classified
+        return accuracy

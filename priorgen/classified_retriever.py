@@ -8,6 +8,8 @@ The current build only uses nested sampling provided by dynesty.
 
 from .classifier import Classifier
 import dynesty
+import numpy as np
+import csv
 
 
 class ClassifiedRetriever:
@@ -19,7 +21,7 @@ class ClassifiedRetriever:
 
         Parameters
         ----------
-        training_parameters : array_like, shape (N, M)
+        training_parameters : array_like, shape (N, n_variables)
             The physical parameter values for each point we are training the
             ML classifier on. N is the number of points, whilst M is the
             physical value for each parameter. These are all assumed to be in
@@ -49,9 +51,9 @@ class ClassifiedRetriever:
         self.classifier = Classifier(training_parameters, training_observables,
                                      n_classes, variance, n_components, n_bins)
 
-    def run_dynesty(self, data_to_fit, uncertainty, lnprob, nlive=200, bound='multi',
+    def run_dynesty(self, data_to_fit, lnprob, nlive=200, bound='multi',
                     sample='auto', maxiter=None, maxcall=None,
-                    **dynesty_kwargs):
+                    filepath='output.csv', **dynesty_kwargs):
         '''
         Runs nested sampling retrieval through Dynesty using the Classifier
         to inform priors
@@ -63,9 +65,9 @@ class ClassifiedRetriever:
         lnprob : function
             A function which must be passed a set of parameters and returns
             their ln likelihood. Signature should be `lnprob(params)` where
-            params is an array with shape (M, ). Note that you will need to
-            have hard-coded the data and associated uncertainties into the
-            `lnprob` function.
+            params is an array with shape (n_variables, ). Note that you will
+            need tohave hard-coded the data and associated uncertainties into
+            the `lnprob` function.
         nlive : int, optional
             The number of live points to use in the nested sampling. Default is
             200.
@@ -121,12 +123,14 @@ class ClassifiedRetriever:
             data_to_fit)
 
         # Set up and run the sampler here!!
-        sampler = dynesty.NestedSampler(dynesty_lnlike, prior_transform,
-                                ndims, bound=bound, sample=bound,
-                                update_interval=float(ndims), nlive=nlive,
+        sampler = dynesty.NestedSampler(lnprob, prior_transform,
+                                n_dims, bound=bound, sample=sample,
+                                update_interval=float(n_dims), nlive=nlive,
                                 **dynesty_kwargs)
 
         sampler.run_nested(maxiter=maxiter, maxcall=maxcall)
+
+        results = sampler.results
 
         # Get some normalised weights
         results.weights = np.exp(results.logwt - results.logwt.max()) / \
@@ -143,4 +147,52 @@ class ClassifiedRetriever:
         results.cov = cov
         results.uncertainties = uncertainties
 
+        self._print_best(results)
+        self._save_results(results, filepath)
+
+
         return results
+
+    def _save_results(self, results, filepath):
+        '''
+        Saves the results to a file
+        '''
+        write_dict = []
+
+        best_results = results.samples[np.argmax(results.logl)]
+
+        for i in range(self.classifier.n_variables):
+            value = best_results[i]
+            unc = results.uncertainties[i]
+
+            write_dict.append({'Variable':i, 'Best value' : value,
+                               'Uncertainty' : unc})
+
+
+        with open(filepath, 'w') as f:
+            columns = ['Variable', 'Best value', 'Uncertainty']
+            writer = csv.DictWriter(f, columns)
+            writer.writeheader()
+            writer.writerows(write_dict)
+
+
+
+    def _print_best(self, results):
+        '''
+        Prints the best results to terminal
+
+        Parameters
+        ----------
+        results : dynesty.results.Results
+            The Dynesty results object, but must also have weights, cov and
+            uncertainties as entries.
+        '''
+        best_results = results.samples[np.argmax(results.logl)]
+
+        print('Best results:')
+
+        for i in range(self.classifier.n_variables):
+            value = round(best_results[i], 4)
+            unc = round(results.uncertainties[i], 4)
+
+            print('Variable {}: {}±{}'.format(i, value, unc))
