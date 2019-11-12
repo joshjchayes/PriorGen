@@ -1,8 +1,7 @@
 '''
 pca_utils.py
 
-Module containing functions to work out optimal number of principal components
-to contain a given percentage of variance, and generate diagnostic plots
+Module containing functions to run PCAs, and generate diagnostic plots
 '''
 
 from sklearn.decomposition import PCA
@@ -106,7 +105,6 @@ def pca_plot(parameters, observables, n_components, save=True,
 
     return fig
 
-
 def find_required_components(parameters, observables, variance):
     '''
     Calculates the number of principal components required for reduced
@@ -146,4 +144,9 @@ def find_required_components(parameters, observables, variance):
     # The +1 is required because the first part finds an index where the
     # cumulative explained variance ratio is larger than the threshold
     # and the indices start from 0
-    return np.where(cumulative_variance >= variance)[0][0] + 1
+    n_PCs = np.where(cumulative_variance >= variance)[0][0] + 1
+
+    if n_PCs > 30:
+        print('WARNING: {} principal components are required - this may lead to slow run times.'.format(n_PCs))
+
+    return n_PCs

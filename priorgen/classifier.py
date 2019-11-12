@@ -14,6 +14,8 @@ from sklearn.cluster import MiniBatchKMeans
 
 from .observablesclass import ObservablesClass
 from .pca_utils import find_required_components, run_PCA, pca_plot
+from .accuracy_utils import RetrievalMetricCalculator
+
 
 
 class Classifier:
@@ -367,3 +369,29 @@ class Classifier:
         if return_accuracy_array:
             return accuracy, accurately_classified
         return accuracy
+
+    def make_metrics_calculator(self, parameter_limits=None):
+        '''
+        Creates a RetrievalMetricCalculator using the parameters limits of the
+        training data, or provided limits.
+
+        Parameters
+        ----------
+        parameter_limits : array_like, shape (n_variables, 2), optional
+            The physical values of the limits on each parameter, provided in
+            (lower, upper) pairs. If None, will default to the min and max
+            values of each of the training sets.
+
+        Returns
+        -------
+        metric_calculator : RetrievalMetricCalculator
+            The RetrievalMetricCalculator which can then be used to calculate
+            metrics on the quality of the retrieval.
+        '''
+        if parameter_limits is None:
+            parameter_limits = np.array([[self.parameters[:, i].min(), self.parameters[:, i].max()] for i in range(self.n_variables)])
+
+        if not len(parameter_limits) == self.n_variables:
+            raise ValueError('{} parameter limits provided but there are {} variables!'.format(len(parameter_limits), self.n_variables))
+
+        return RetrievalMetricCalculator(parameter_limits)
