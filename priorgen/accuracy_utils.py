@@ -166,3 +166,4 @@ def _find_intercept(true_position, retrieved_position, errors):
     start_pos = np.array(tuple(true_position) + (0.3,))
 
     return fsolve(_intercept_eqn, start_pos, args=(true_position, retrieved_position, errors))
+    

@@ -125,7 +125,8 @@ class Classifier:
         label = self._clustering.predict(scaled_obs)
         return label[0]
 
-    def create_dynesty_prior_transform(self, observable):
+    def create_dynesty_prior_transform(self, observable, n_nuisance=0,
+                                       nuisance_limits=None):
         '''
         When given an observable, creates a function which will convert a
         unit cube from dynesty's nested sampling to a physical value set which
@@ -134,7 +135,13 @@ class Classifier:
         Parameters
         ----------
         observable : array_like, shape (X, )
-            The observable to be classified
+            The observable to be classified.
+        n_nuisance : int, optional
+            The number of nuisance parameters to include in fitting. Can be
+            changed by calling set_nuisance_parameters. Default is 0.
+        nuisance_limits : None, or array_like, shape (n_nuisance, 2)
+            The limits for each nuisance parameter, provided as (lower, upper)
+            pairs. If None, defaults to (-1000, 1000) for each parameter.
 
         Returns
         -------
@@ -173,8 +180,13 @@ class Classifier:
                 #print(data_class.convert_from_unit_interval(
                     #i, unit_cube[i]))
                 #print(unit_cube[i])
-                physical_cube[i] = data_class.convert_from_unit_interval(
-                    i, unit_cube[i])
+                if i < self.n_variables:
+                    # Convert from the physical priors
+                    physical_cube[i] = data_class.convert_from_unit_interval(
+                        i, unit_cube[i])
+                else:
+                    # This is a nuisance parameter - convert separately
+                    physical_cube[i] = unit_cube[i] * (nuisance_limits[i, 1] - nuisance_limits[i, 0]) + nuisance_limits[i, 0]
 
             return physical_cube
 

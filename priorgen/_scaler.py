@@ -23,7 +23,6 @@ class Scaler:
         if not parameter_limits.shape[1] == 2 and len(parameter_limits.shape) == 2:
             raise ValueError('Parameter limits must be provided in shape (N, 2)')
 
-
         self.parameter_limits = parameter_limits
         self.n_variables = len(parameter_limits)
 
