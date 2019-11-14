@@ -125,7 +125,7 @@ class ClassifiedRetriever:
 
         # First up, we need to define some variables for the Retriever
         # Number of dimensions we are retrieving
-        n_dims = self.classifier.n_variables + self.nuisance_parameters
+        n_dims = self.classifier.n_variables + self.n_nuisance
 
         # Make the prior transform function
         prior_transform = self.classifier.create_dynesty_prior_transform(
@@ -226,14 +226,16 @@ class ClassifiedRetriever:
             raise ValueError("Can't have negative nuisance parameters!")
 
         if nuisance_limits is None:
-            nuisance_limits = np.array([[-1000, 1000] for i in range(n_nuisance))
+            nuisance_limits = np.array([[-1000, 1000] for i in range(n_nuisance)])
 
-        nlimshape = nuisance_limits.shape
-        if not len(nlimshape.shape) == 2:
-            raise ValueError('Invalid nuisance_limits shape {}'.format(nlimshape))
-        if not nlimshape[0] == n_nuisance:
-            raise ValueError('{} limits provided for {} nuisance parameters'.format(nlimshape[0], n_nuisance))
-        if not nlimshape[1] == 2:
-            raise ValueError('Limits need to be provided as (lower, upper) pairs.')
-        self.nuisance_parameters = n_nuisance
+
+        if not n_nuisance == 0:
+            nlimshape = nuisance_limits.shape
+            if not len(nlimshape) == 2:
+                raise ValueError('Invalid nuisance_limits shape {}'.format(nlimshape))
+            if not nlimshape[0] == n_nuisance:
+                raise ValueError('{} limits provided for {} nuisance parameters'.format(nlimshape[0], n_nuisance))
+            if not nlimshape[1] == 2:
+                raise ValueError('Limits need to be provided as (lower, upper) pairs.')
+        self.n_nuisance = n_nuisance
         self.nuisance_limits = nuisance_limits
