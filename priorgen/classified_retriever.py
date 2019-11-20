@@ -75,7 +75,7 @@ class ClassifiedRetriever:
             A function which must be passed a set of parameters and returns
             their ln likelihood. Signature should be `lnprob(params)` where
             params is an array with shape (n_variables, ). Note that you will
-            need tohave hard-coded the data and associated uncertainties into
+            need to have hard-coded the data and associated uncertainties into
             the `lnprob` function.
         nlive : int, optional
             The number of live points to use in the nested sampling. Default is

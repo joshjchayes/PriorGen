@@ -186,7 +186,8 @@ class Classifier:
                         i, unit_cube[i])
                 else:
                     # This is a nuisance parameter - convert separately
-                    physical_cube[i] = unit_cube[i] * (nuisance_limits[i, 1] - nuisance_limits[i, 0]) + nuisance_limits[i, 0]
+                    j = i - self.n_variables
+                    physical_cube[i] = unit_cube[i] * (nuisance_limits[j, 1] - nuisance_limits[j, 0]) + nuisance_limits[j, 0]
 
             return physical_cube
 
