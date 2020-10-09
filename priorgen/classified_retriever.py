@@ -22,7 +22,7 @@ class ClassifiedRetriever:
 
         Parameters
         ----------
-        training_parameters : array_like, shape (N, n_variables)
+        training_parameters : array_like, shape (N, M)
             The physical parameter values for each point we are training the
             ML classifier on. N is the number of points, whilst M is the
             physical value for each parameter. These are all assumed to be in
@@ -61,7 +61,7 @@ class ClassifiedRetriever:
         self.set_nuisance_parameters(n_nuisance)
 
     def run_dynesty(self, data_to_fit, lnprob, nlive=200, bound='multi',
-                    sample='auto', maxiter=None, maxcall=None,
+                    sample='auto', maxiter=None, maxcall=None, dlogz=None,
                     filepath='output.csv', **dynesty_kwargs):
         '''
         Runs nested sampling retrieval through Dynesty using the Classifier
@@ -137,7 +137,7 @@ class ClassifiedRetriever:
                                 update_interval=float(n_dims), nlive=nlive,
                                 **dynesty_kwargs)
 
-        sampler.run_nested(maxiter=maxiter, maxcall=maxcall)
+        sampler.run_nested(maxiter=maxiter, maxcall=maxcall, dlogz=dlogz)
 
         results = sampler.results
 

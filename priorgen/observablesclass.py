@@ -188,18 +188,16 @@ class ObservablesClass:
         fig = plt.figure(figsize=(10,10))
 
         gs = gridspec.GridSpec(self.n_variables, self.n_variables)
+        
+        for row in range(self.n_variables):
+            for col in range(i + 1):
+                ax = fig.add_subplot(gs[row, col])
 
-
-
-        for i in range(self.n_variables):
-            for j in range(i + 1):
-                ax = fig.add_subplot(gs[i, j])
-
-                xlabel = axis_labels[j]
-                ylabel = axis_labels[i]
+                xlabel = axis_labels[col]
+                ylabel = axis_labels[row]
 
                 # DO SOME THINGS WITH THE AXES, LABELS AND TICKS.
-                if i == self.n_variables - 1:
+                if row == self.n_variables - 1:
                     # add in the x labels
                     ax.set_xlabel(xlabel)
                 else:
@@ -207,7 +205,7 @@ class ObservablesClass:
                     ax.tick_params(axis='x',
                                    which='both',
                                    labelbottom=False)
-                if j == 0:
+                if col == 0:
                     # Add in the y axis and labels
                     ax.set_ylabel(ylabel)
                 else:
@@ -218,21 +216,21 @@ class ObservablesClass:
 
                 if axis_lims is not None:
                     # Rescale the axes
-                    ax.set_xlim(*axis_lims[j])
-                    if not i == j:
+                    ax.set_xlim(*axis_lims[col])
+                    if not row == col:
                         # Avoid messing with the y axis on the marginal plots
-                        ax.set_ylim(*axis_lims[i])
+                        ax.set_ylim(*axis_lims[row])
 
                 # PLOT
-                if i == j:
+                if row == col:
                     # Marginalised plot.
-                    vals = self.parameters[:, i]
+                    vals = self.parameters[:, row]
                     h = ax.hist(vals, bins=self.n_bins, histtype='stepfilled', color=plt.cm.BuGn(220), edgecolor='k', linewidth=2.5)
 
                 else:
                     # Contour plot
-                    x = self.parameters[:,j]
-                    y = self.parameters[:,i]
+                    x = self.parameters[:,col]
+                    y = self.parameters[:,row]
 
                     # Set up a meshgrid
                     k = kde.gaussian_kde(np.array([x,y]))
@@ -242,10 +240,10 @@ class ObservablesClass:
 
                     else:
                         # Need to use differentlimits for meshgrid as we are changing the axis lims
-                        xmin = axis_lims[j, 0]
-                        xmax = axis_lims[j, 1]
-                        ymin = axis_lims[i, 0]
-                        ymax = axis_lims[i, 1]
+                        xmin = axis_lims[col, 0]
+                        xmax = axis_lims[col, 1]
+                        ymin = axis_lims[row, 0]
+                        ymax = axis_lims[row, 1]
                         xi, yi = np.mgrid[xmin:xmax:self.n_bins*1j, ymin:ymax:self.n_bins*1j]
 
                     zi = k(np.vstack([xi.flatten(), yi.flatten()]))
