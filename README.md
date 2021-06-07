@@ -3,6 +3,29 @@
 
 In order to use `PriorGen` effectively, you will require a trusted forward model which takes continuous parameter values as inputs and produces some single dimensioned output F(x).
 
+## Citing `Priorgen`
+If you find `PriorGen` useful in your work, please cite the paper which outlines the methodology: https://ui.adsabs.harvard.edu/abs/2020MNRAS.494.4492H/abstract. If you are using BibTeX, you can copy the following into your .bib file:
+```
+@ARTICLE{2020MNRAS.494.4492H,
+       author = {{Hayes}, J.~J.~C. and {Kerins}, E. and {Awiphan}, S. and {McDonald}, I. and {Morgan}, J.~S. and {Chuanraksasat}, P. and {Komonjinda}, S. and {Sanguansak}, N. and {Kittara}, P. and {SPEARNet Collaboration}},
+        title = "{Optimizing exoplanet atmosphere retrieval using unsupervised machine-learning classification}",
+      journal = {\mnras},
+     keywords = {methods: data analysis, methods: statistical, planets and satellites: atmospheres, Astrophysics - Earth and Planetary Astrophysics, Astrophysics - Instrumentation and Methods for Astrophysics},
+         year = 2020,
+        month = may,
+       volume = {494},
+       number = {3},
+        pages = {4492-4508},
+          doi = {10.1093/mnras/staa978},
+archivePrefix = {arXiv},
+       eprint = {1909.00718},
+ primaryClass = {astro-ph.EP},
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2020MNRAS.494.4492H},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+
+```
+
 ## Contents
 
 - [Requirements](#requirements)
